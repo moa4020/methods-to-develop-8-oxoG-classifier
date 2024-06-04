@@ -1,0 +1,126 @@
+---
+title: "ExtractRandomers"
+author: 'Mohith Reddy Arikatla (CWID: moa4020)'
+date: "2024-02-26"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(Biostrings)
+library(tidyr)
+library(dplyr)
+library(ggplot2)
+library(ggseqlogo)
+library(muscle)
+```
+
+```{r}
+randomers <- c(NegRandomer="CAGTCACGAGTACTNNNNNNNNNGCGTAATGGTTCAG",PosRandomer="GTAGTACACTGCCACNNNNNNNNNTTACTTCGCGATCG")
+randomer_DNAStringSet <- DNAStringSet(randomers)
+randomer_DNAStringSet
+```
+
+```{r}
+v02Lib_FASTA <- readDNAStringSet(filepath = "v02_shortlist.fasta")
+```
+
+Extract randomers from negative motifs
+
+```{r}
+
+v02Lib_alignments_NR <- vmatchPattern(randomers[1],v02Lib_FASTA, 
+             max.mismatch=1, min.mismatch=0,
+             with.indels=FALSE, fixed="subject",
+             algorithm="naive-inexact")
+v02Lib_alignments_NR_unlisted <- data.frame(unlist(v02Lib_alignments_NR))
+
+v02Lib_alignedPatterns_NR <- v02Lib_alignments_NR_unlisted
+
+v02Lib_alignedPatterns_NR$sequences <- v02Lib_FASTA[v02Lib_alignedPatterns_NR$names]
+
+v02Lib_alignedPatterns_NR$randomer <- substr(v02Lib_alignedPatterns_NR$sequences,v02Lib_alignedPatterns_NR$start,v02Lib_alignedPatterns_NR$end)
+
+v02Lib_randomers_NR <- DNAStringSet(v02Lib_alignedPatterns_NR$randomer)
+
+writeXStringSet(v02Lib_randomers_NR,filepath = "v02Lib_randomers_NR.fasta")
+
+```
+
+```{}
+sbatch /athena/cayuga_0003/scratch/moa4020/scripts/cluso.sh
+
+#!/bin/bash -l
+
+#SBATCH --mail-user=moa4020@med.cornell.edu
+#SBATCH --mail-type=ALL
+#SBATCH -J cluso
+#SBATCH -p scu-cpu
+#SBATCH -e /athena/cayuga_0003/scratch/moa4020/scripts/err/cluso_%j.err
+#SBATCH -o /athena/cayuga_0003/scratch/moa4020/scripts/out/cluso_%j.out
+#SBATCH -t 7-00:00:00
+#SBATCH --mem-per-cpu=16G
+#SBATCH --nodes=1
+#SBATCH --ntasks-per-core=1
+#SBATCH --cpus-per-task=16
+
+clustalo="/home/fs01/moa4020/miniforge3/envs/cluso/bin"
+cd "/athena/cayuga_0003/scratch/moa4020/8-oxoG/basecalls/v02"
+
+$clustalo/clustalo -i v02Lib_randomers_NR.fasta -o v02Lib_randomers_NR_msa.fasta --force --threads=16
+$clustalo/clustalo -i v02Lib_randomers_PR.fasta -o v02Lib_randomers_PR_msa.fasta --force --threads=16
+```
+
+
+Extract randomers from positive motifs
+
+```{r}
+
+v02Lib_alignments_PR <- vmatchPattern(randomers[2],v02Lib_FASTA, 
+             max.mismatch=1, min.mismatch=0,
+             with.indels=FALSE, fixed="subject",
+             algorithm="naive-inexact")
+v02Lib_alignments_PR_unlisted <- data.frame(unlist(v02Lib_alignments_PR))
+
+v02Lib_alignedPatterns_PR <- v02Lib_alignments_PR_unlisted
+
+v02Lib_alignedPatterns_PR$sequences <- v02Lib_FASTA[v02Lib_alignedPatterns_PR$names]
+
+v02Lib_alignedPatterns_PR$randomer <- substr(v02Lib_alignedPatterns_PR$sequences,v02Lib_alignedPatterns_PR$start,v02Lib_alignedPatterns_PR$end)
+
+v02Lib_randomers_PR <- DNAStringSet(v02Lib_alignedPatterns_PR$randomer)
+
+writeXStringSet(v02Lib_randomers_PR,filepath = "v02Lib_randomers_PR.fasta")
+```
+
+```{r}
+#Conduct MSA using clustal omega on your PC and upload the file here. 
+
+v02Lib_alignedPatterns_NR.randomer_msa <- readDNAMultipleAlignment(filepath = "v02Lib_randomers_NR_msa.fasta")
+
+v02Lib_alignedPatterns_NR$randomer_msa <- paste0(v02Lib_alignedPatterns_NR.randomer_msa)
+
+pdf(file="v02Lib_alignedPatterns_NR.randomer_msa.logoplot.pdf", width = 10, height=4)
+
+ggseqlogo(v02Lib_alignedPatterns_NR$randomer_msa, method="prob")
+
+dev.off()
+
+write.table(v02Lib_alignedPatterns_NR,file="v02Lib_alignedPatterns_NR.tsv",sep="\t",quote = FALSE,col.names = FALSE)
+```
+
+```{r}
+#Conduct MSA using clustal omega on your PC and upload the file here. 
+
+v02Lib_alignedPatterns_PR.randomer_msa <- readDNAMultipleAlignment(filepath = "v02Lib_randomers_PR_msa.fasta")
+
+v02Lib_alignedPatterns_PR$randomer_msa <- paste0(v02Lib_alignedPatterns_PR.randomer_msa)
+
+pdf(file="v02Lib_alignedPatterns_PR.randomer_msa.logoplot.pdf", width = 10, height=4)
+
+ggseqlogo(v02Lib_alignedPatterns_PR$randomer_msa, method="prob")
+
+dev.off()
+
+write.table(v02Lib_alignedPatterns_PR,file="v02Lib_alignedPatterns_PR.tsv",sep="\t",quote = FALSE,col.names = FALSE)
+```

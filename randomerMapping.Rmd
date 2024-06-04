@@ -1,0 +1,78 @@
+---
+title: "randomerMapping"
+author: 'Mohith Reddy Arikatla (CWID: moa4020)'
+date: "2024-03-14"
+output: html_document
+---
+
+## Import Data
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+uniqueRandomersMapCombined <- read.csv(file="uniqueRandomers_MapCombined.txt", header = FALSE,sep = " ", col.names = c("randomerRead","negMap","posMap"))
+
+uniqueRandomersMapCombined <- uniqueRandomersMapCombined[-1,]
+
+uniqueRandomersTrueMapCombined <- cbind(uniqueRandomersMapCombined[,1],sub("(?<=^.{4}).", "G", uniqueRandomersMapCombined[,1], perl=TRUE),uniqueRandomersMapCombined[,2], uniqueRandomersMapCombined[,3])
+
+uniqueRandomersTrueMapCombined <- uniqueRandomersTrueMapCombined[,-1]
+```
+
+## Collapse to true randomer based map
+
+```{r}
+
+# Extract unique values from column 1 of uniqueRandomersTrueMapCombined
+unique_TrueRandomers <- unique(uniqueRandomersTrueMapCombined[, 1])
+
+# Create a new data frame with unique values from column 1
+trueRandomersMap <- data.frame(trueRandomer=unique_TrueRandomers)
+
+# Initialize an empty list to store mapped values
+mapped_values <- list()
+
+# Iterate through each row in col 1 of trueRandomersMap
+for (randomer in trueRandomersMap[, 1]) {
+    # Find corresponding values in col 2 of uniqueRandomersTrueMapCombined
+    corresponding_values <- uniqueRandomersTrueMapCombined[uniqueRandomersTrueMapCombined[, 1] == randomer, 2]
+    
+    # Check if the value is NA
+    if (length(corresponding_values) > 1) { # Check if multiple values are found
+        # Concatenate values with "," separator
+        mapped_values[[randomer]] <- paste(na.omit(corresponding_values), collapse = ",")
+    } else {
+        # Single value found
+        mapped_values[[randomer]] <- corresponding_values
+    }
+}
+
+# Convert the list to a data frame
+mapped_table <- data.frame(randomer = names(mapped_values), corresponding_NegReads = unlist(mapped_values))
+
+# Initialize an empty list to store mapped values
+mapped_values <- list()
+
+# Iterate through each row in col 1 of trueRandomersMap
+for (randomer in trueRandomersMap[, 1]) {
+    # Find corresponding values in col 3 of uniqueRandomersTrueMapCombined
+    corresponding_values <- uniqueRandomersTrueMapCombined[uniqueRandomersTrueMapCombined[, 1] == randomer, 3]
+    
+    if (length(corresponding_values) > 1) { # Check if multiple values are found
+        # Concatenate values with "," separator
+        mapped_values[[randomer]] <- paste(na.omit(corresponding_values), collapse = ",")
+    } else {
+        # Single value found
+        mapped_values[[randomer]] <- corresponding_values
+    }
+}
+
+# Convert the list to a data frame
+mapped_table$corresponding_PosReads <- unlist(mapped_values)
+
+# Replace empty cells with NA in columns 2 and 3 of mapped_table
+mapped_table[, 2:3][mapped_table[, 2:3] == ""] <- NA
+
+mapped_table_filtered <- na.omit(mapped_table)
+
+```

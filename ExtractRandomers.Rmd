@@ -1,0 +1,104 @@
+---
+title: "ExtractRandomers"
+author: 'Mohith Reddy Arikatla (CWID: moa4020)'
+date: "2024-02-26"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(Biostrings)
+library(tidyr)
+library(dplyr)
+library(ggplot2)
+library(ggseqlogo)
+library(muscle)
+```
+
+```{r}
+randomers <- c(NegRandomer="CAGTCACGAGTACTNNNNGNNNNGCGTAATGGTTCAG",PosRandomer="GTAGTACACTGCCACNNNNGNNNNTTACTTCGCGATCG")
+randomer_DNAStringSet <- DNAStringSet(randomers)
+randomer_DNAStringSet
+```
+```{r}
+#Load annotations
+v02Lib <- data.frame(read.table(file="v02.tr.skit.loc.cut.sort.flt.comb.append.tsv",col.names = c("readID","featureString")))
+v02Lib_FASTA <- readDNAStringSet(filepath = "FAW63250_comb_trimmed.fasta")
+
+#Load fasta sequences of reads containing right handles
+filtered_v02Lib <- v02Lib[v02Lib$readID %in% names(v02Lib_FASTA), ]
+```
+
+Extract randomers from negative motifs
+
+```{r}
+v02Lib_features <- filtered_v02Lib[,2]
+
+# Split the input string based on ">"
+v02Lib_features_split_by_arrow <- strsplit(v02Lib_features, ">")
+
+filtered_v02Lib$features <- v02Lib_features_split_by_arrow
+
+filtered_v02Lib$seq <- v02Lib_FASTA[filtered_v02Lib$readID]
+
+v02Lib_alignments_NR <- vmatchPattern(randomers[1],filtered_v02Lib$seq, 
+             max.mismatch=1, min.mismatch=0,
+             with.indels=FALSE, fixed="subject",
+             algorithm="naive-inexact")
+v02Lib_alignments_NR_unlisted <- data.frame(unlist(v02Lib_alignments_NR))
+
+v02Lib_alignedPatterns_NR <- v02Lib_alignments_NR_unlisted
+
+v02Lib_alignedPatterns_NR$sequences <- filtered_v02Lib$seq[v02Lib_alignedPatterns_NR$names]
+
+v02Lib_alignedPatterns_NR$randomer <- substr(v02Lib_alignedPatterns_NR$sequences,v02Lib_alignedPatterns_NR$start,v02Lib_alignedPatterns_NR$end)
+
+v02Lib_randomers_NR <- DNAStringSet(v02Lib_alignedPatterns_NR$randomer)
+
+writeXStringSet(v02Lib_randomers_NR,filepath = "v02Lib_randomers_NR.fasta")
+
+v02Lib_alignedPatterns_NR.randomer_msa <- readDNAMultipleAlignment(filepath = "v02Lib_randomers_NR_msa.fasta")
+
+v02Lib_alignedPatterns_NR$randomer_msa <- paste0(v02Lib_alignedPatterns_NR.randomer_msa)
+
+pdf(file="v02Lib_alignedPatterns_NR.randomer_msa.logoplot.pdf", width = 10, height=4)
+
+ggseqlogo(v02Lib_alignedPatterns_NR$randomer_msa, method="prob")
+
+dev.off()
+
+write.table(v02Lib_alignedPatterns_NR,file="v02Lib_alignedPatterns_NR.tsv",sep="\t",quote = FALSE,col.names = FALSE)
+```
+
+Extract randomers from positive motifs
+
+```{r}
+
+v02Lib_alignments_PR <- vmatchPattern(randomers[2],filtered_v02Lib$seq, 
+             max.mismatch=1, min.mismatch=0,
+             with.indels=FALSE, fixed="subject",
+             algorithm="naive-inexact")
+v02Lib_alignments_PR_unlisted <- data.frame(unlist(v02Lib_alignments_PR))
+
+v02Lib_alignedPatterns_PR <- v02Lib_alignments_PR_unlisted
+
+v02Lib_alignedPatterns_PR$sequences <- filtered_v02Lib$seq[v02Lib_alignedPatterns_PR$names]
+
+v02Lib_alignedPatterns_PR$randomer <- substr(v02Lib_alignedPatterns_PR$sequences,v02Lib_alignedPatterns_PR$start,v02Lib_alignedPatterns_PR$end)
+
+v02Lib_randomers_PR <- DNAStringSet(v02Lib_alignedPatterns_PR$randomer)
+
+#writeXStringSet(v02Lib_randomers_PR,filepath = "v02Lib_randomers_PR.fasta")
+
+v02Lib_alignedPatterns_PR.randomer_msa <- readDNAMultipleAlignment(filepath = "v02Lib_randomers_PR_msa.fasta")
+
+v02Lib_alignedPatterns_PR$randomer_msa <- paste0(v02Lib_alignedPatterns_PR.randomer_msa)
+
+pdf(file="v02Lib_alignedPatterns_PR.randomer_msa.logoplot.pdf", width = 10, height=4)
+
+ggseqlogo(v02Lib_alignedPatterns_PR$randomer_msa, method="prob")
+
+dev.off()
+
+write.table(v02Lib_alignedPatterns_PR,file="v02Lib_alignedPatterns_PR.tsv",sep="\t",quote = FALSE,col.names = FALSE)
+```
